@@ -2,8 +2,7 @@ from sqlalchemy import Table, Column, String
 
 from ckan.model import Session
 
-import celery as _celery
-from ckan.lib.celery_app import celery
+import ckan.lib.jobs as jobs
 
 from ckanext.publicamundi.model import Base
 
@@ -47,15 +46,16 @@ class ResourceIdentify(Base):
         self.resource_type = resource_type
 
     def get_celery_task_result(self):
-        result = celery.AsyncResult(self.celery_task_id)
+        job = jobs.job_from_id(self.celery_task_id)
+        result = job.result
 
-        if result.state == _celery.states.SUCCESS:
-            return result.get()
-        elif (result.state == _celery.states.PENDING or
-              result.state == _celery.states.RECEIVED):
+        if result:
+            return result
+        else:
             raise TaskNotReady
-        elif result.state == _celery.states.FAILURE:
-            raise TaskFailed()
+        #TODO - how to detect failure...?
+        #elif result.state == _celery.states.FAILURE:
+        #    raise TaskFailed()
 
     def get_resource_type(self):
         return self.resource_type
